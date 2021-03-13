@@ -1,0 +1,27 @@
+{
+    "Options": {
+        "Tasks": {
+            "OnMainMenu": {
+                "Tasks": [
+                    {
+                        "Type": "Delay",
+                        "Value": 5.0
+                    },
+                    {
+                        "Type": "Console Command",
+                        "Value": "exec rlnt_patch.xml"
+                    }
+                ]
+            },
+            "OnLaunch": {
+                "Comment": [
+                    "Congratulations, you found the secret file where you can setup tasks to run on launch.",
+                    " This is not editable ingame because exec-ing mods before the main menu tends to cause",
+                    " a crash, but if you really want you can edit the `Tasks` array here at your own risk."
+                ],
+                "Tasks": []
+            }
+        }
+    },
+    "AutoEnable": true
+}
