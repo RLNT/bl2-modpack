@@ -1,0 +1,24 @@
+# logs
+files/blcmm_logs
+
+# cache
+files/Win32/Mods/__pycache__
+
+# packaged mods
+files/Win32/Mods/AsyncUtil
+files/Win32/Mods/BackpackManager
+files/Win32/Mods/Quickload
+files/Win32/Mods/ReadOnly
+files/Win32/Mods/SkillRandomizer
+files/Win32/Mods/UserFeedback
+
+# packaged files
+files/Win32/Mods/*.*
+
+# ignore BL2Fix except settings
+files/Win32/Mods/BL2Fix/*
+!files/Win32/Mods/BL2Fix/settings.json
+
+# ignore ModMenu except settings
+files/Win32/Mods/ModMenu/*
+!files/Win32/Mods/ModMenu/favourites.json
