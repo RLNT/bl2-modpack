@@ -1,7 +1,7 @@
 {
     "Keybinds": {
-        "Select next Mission": "Period",
-        "Select previous Mission": "Comma"
+        "Select next Mission": "RightBracket",
+        "Select previous Mission": "LeftBracket"
     },
     "AutoEnable": true
 }
