@@ -1,8 +1,8 @@
 # logs
 files/blcmm_logs
 
-# caches
-/files/**/__pycache__
+# cache
+__pycache__/
 
 # packaged mods
 files/Win32/Mods/AsyncUtil
@@ -26,6 +26,7 @@ files/Win32/Mods/ModMenu/*
 # ignore MissionSelector except mod files
 files/Win32/Mods/MissionSelector/*
 !files/Win32/Mods/MissionSelector/__init__.py
+!files/Win32/Mods/MissionSelector/settings.json
 
 # misc
 files/Win32/Mods/BSABT/spawnpoint.json
