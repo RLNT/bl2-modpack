@@ -26,7 +26,6 @@ files/Win32/Mods/ModMenu/*
 # ignore MissionSelector except mod files
 files/Win32/Mods/MissionSelector/*
 !files/Win32/Mods/MissionSelector/__init__.py
-!files/Win32/Mods/MissionSelector/settings.json
 
 # misc
 files/Win32/Mods/BSABT/spawnpoint.json
