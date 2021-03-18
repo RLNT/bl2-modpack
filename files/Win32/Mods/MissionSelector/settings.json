@@ -1,7 +1,0 @@
-{
-    "Keybinds": {
-        "Select next Mission": "RightBracket",
-        "Select previous Mission": "LeftBracket"
-    },
-    "AutoEnable": true
-}
