@@ -15,8 +15,8 @@ The format is based on [Keep a Changelog][keep a changelog] and this project adh
 ## [2021-03-18]
 
 ### Changed
-
 - skill toggle text mod to new SDK mod
+- downgraded MissionSelector to avoid erros with sorting
 
 ## [2021-03-14]
 
