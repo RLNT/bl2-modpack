@@ -23,7 +23,9 @@ files/Win32/Mods/BL2Fix/*
 # ignore MissionSelector except mod files
 files/Win32/Mods/MissionSelector/*
 !files/Win32/Mods/MissionSelector/__init__.py
-!files/Win32/Mods/MissionSelector/settings.json
+
+# ignore SkillToggles settings
+files/Win32/Mods/SkillToggles/settings.json
 
 # ignore additional mods not belonging to the modpack
 files/Win32/Mods/ApplesBorderlandsCheats
