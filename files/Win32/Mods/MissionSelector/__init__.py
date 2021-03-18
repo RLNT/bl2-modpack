@@ -40,7 +40,7 @@ class MissionSelector(SDKMod):
     Name: str = "Mission Selector"
     Author: str = "Chronophylos"
     Description: str = "Switch through missions with hotkeys, like in BL3\n"
-    Version: str = "1.2.0"
+    Version: str = "1.1.1"
 
     Types: ModTypes = ModTypes.Utility
     SaveEnabledState: EnabledSaveType = EnabledSaveType.LoadWithSettings
@@ -129,7 +129,7 @@ class MissionSelector(SDKMod):
         for mission in self._getMissionTracker().MissionList:
             if EMissionStatus(mission.Status).isActive():
                 missions.append(mission)
-        return sorted(missions, key=lambda mission: int(mission.ExpLevel))
+        return missions
 
     def GetSelectedMission(self) -> unrealsdk.UObject:
         """Return the selected mission as `WillowGame.MissionDefinition`."""
