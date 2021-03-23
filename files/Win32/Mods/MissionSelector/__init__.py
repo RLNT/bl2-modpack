@@ -1,26 +1,48 @@
-import unrealsdk
 import enum
 import webbrowser
-from typing import Dict, List, Optional
+from typing import Dict, Iterable, List, Optional, cast
+
+import unrealsdk
 from Mods.ModMenu import (
-    SDKMod,
-    Mods,
-    RegisterMod,
-    ModTypes,
     EnabledSaveType,
-    KeybindManager,
+    Game,
     Keybind,
+    KeybindManager,
+    Mods,
+    ModTypes,
+    RegisterMod,
+    SDKMod,
     ServerMethod,
-    ClientMethod,
 )
 
+# thank you apple :)
+try:
+    from Mods.EridiumLib import getLatestVersion, isClient, isLatestRelease, log
+    from Mods.EridiumLib.keys import KeyBinds
+except ModuleNotFoundError or ImportError:
+    webbrowser.open("https://github.com/RLNT/bl2_eridium#-troubleshooting")
+    raise
+
+if __name__ == "__main__":
+    import importlib
+    import sys
+
+    importlib.reload(sys.modules["Mods.EridiumLib"])
+    importlib.reload(sys.modules["Mods.EridiumLib.keys"])
+
+    # See https://github.com/bl-sdk/PythonSDK/issues/68
+    try:
+        raise NotImplementedError
+    except NotImplementedError:
+        __file__ = sys.exc_info()[-1].tb_frame.f_code.co_filename  # type: ignore
+
 NEXT_MISSION_DESC: str = "Select next Mission"
-NEXT_MISSION_KEY: str = "RightBracket"
+NEXT_MISSION_KEY: str = KeyBinds.RightBracket.value
 PREV_MISSION_DESC: str = "Select previous Mission"
-PREV_MISSION_KEY: str = "LeftBracket"
+PREV_MISSION_KEY: str = KeyBinds.LeftBracket.value
 
 
-class EMissionStatus(enum.IntEnum):
+class MissionStatus(enum.IntEnum):
     NotStarted = 0
     Active = 1
     RequiredObjectivesComplete = 2
@@ -29,155 +51,174 @@ class EMissionStatus(enum.IntEnum):
     Failed = 5
     MAX = 6
 
-    def isActive(self) -> bool:
+    def canBeActivated(self) -> bool:
+        """Returns true if the status is either ReadyToTurnIn or Active."""
         return self in [
-            EMissionStatus.ReadyToTurnIn,
-            EMissionStatus.Active,
+            MissionStatus.ReadyToTurnIn,
+            MissionStatus.Active,
         ]
 
 
 class MissionSelector(SDKMod):
     Name: str = "Mission Selector"
-    Author: str = "Chronophylos"
-    Description: str = "Switch through missions with hotkeys, like in BL3\n"
-    Version: str = "1.1.1"
+    Author: str = "Chronophylos, Relentless"
+    Description: str = (
+        "Switch through missions with hotkeys.\nInspired by Borderlands 3."
+    )
+    Version: str = "1.3.0"
 
+    SupportedGames: Game = Game.BL2 | Game.TPS
     Types: ModTypes = ModTypes.Utility
     SaveEnabledState: EnabledSaveType = EnabledSaveType.LoadWithSettings
 
-    SettingsInputs: Dict[str, str] = {"Enter": "Enable", "G": "Github"}
+    SettingsInputs: Dict[str, str] = {
+        KeyBinds.Enter.value: "Enable",
+        KeyBinds.G.value: "GitHub",
+        KeyBinds.D.value: "Discord",
+    }
 
     def __init__(self) -> None:
         super().__init__()
 
         self.Keybinds = [
-            # Keybind(NEXT_MISSION_DESC, NEXT_MISSION_KEY, OnPress=self.NextMission),
-            # Keybind(PREV_MISSION_DESC, PREV_MISSION_KEY, OnPress=self.PrevMission),
-            Keybind(NEXT_MISSION_DESC, NEXT_MISSION_KEY),
-            Keybind(PREV_MISSION_DESC, PREV_MISSION_KEY),
+            Keybind(
+                NEXT_MISSION_DESC, NEXT_MISSION_KEY, True, OnPress=self.nextMission
+            ),
+            Keybind(
+                PREV_MISSION_DESC, PREV_MISSION_KEY, True, OnPress=self.prevMission
+            ),
         ]
-
-    def _log(self, message: str) -> None:
-        unrealsdk.Log(f"[{self.Name}] {message}")
-
-    @ClientMethod
-    def _logClient(self, message: str, PC: Optional[unrealsdk.UObject] = None) -> None:
-        self._log(message)
 
     def Enable(self) -> None:
         super().Enable()
 
-        self._log(f"Version: {self.Version}")
+        log(self, f"Version: {self.Version}")
+        latest_version = getLatestVersion("RLNT/bl2_missionselector")
+        log(
+            self,
+            f"Latest release tag: {latest_version}",
+        )
+        if isLatestRelease(latest_version, self.Version):
+            log(self, "Up-to-date")
+        else:
+            log(self, "There is a newer version available {latest_version}")
 
-    def GameInputPressed(
-        self, bind: KeybindManager.Keybind, event: KeybindManager.InputEvent
-    ) -> None:
+    def SettingsInputPressed(self, action: str) -> None:
+        if action == "GitHub":
+            webbrowser.open("https://github.com/RLNT/bl2_missionselector")
+        elif action == "Discord":
+            webbrowser.open("https://discord.com/invite/Q3qxws6")
+        else:
+            super().SettingsInputPressed(action)
+
+    def nextMission(self, event: KeybindManager.InputEvent) -> None:
         if event != KeybindManager.InputEvent.Pressed:
             return
 
-        if bind.Name == NEXT_MISSION_DESC:
-            self.NextMission()
-        elif bind.Name == PREV_MISSION_DESC:
-            self.PrevMission()
+        missionTracker = self.getMissionTracker()
+        activeMissions = cast(
+            List[unrealsdk.UObject], self.getActiveMissions(missionTracker)
+        )
+        index = self.getActiveMissionIndex(missionTracker, activeMissions)
 
-    def SettingsInputPressed(self, action: str) -> None:
-        super().SettingsInputPressed(action)
-
-        if action == "Github":
-            webbrowser.open("https://github.com/Chronophylos/bl2_missionselector")
-
-    def NextMission(self) -> None:
-        missions = self.GetActiveMissions()
-        active_mission_index = self._getActiveMissionIndex(missions)
-
-        next_mission = None
-        if active_mission_index < len(missions) - 1:
-            next_mission = missions[active_mission_index + 1]
+        nextMission = None
+        if index < len(activeMissions) - 1:
+            nextMission = activeMissions[index + 1]
         else:
-            next_mission = missions[0]
+            nextMission = activeMissions[0]
 
-        self.SetSelectedMission(next_mission.missionDef)
+        self.setActiveMission(nextMission.MissionDef)
 
-    def PrevMission(self) -> None:
-        missions = self.GetActiveMissions()
-        active_mission_index = self._getActiveMissionIndex(missions)
+    def prevMission(self, event: KeybindManager.InputEvent) -> None:
+        if event != KeybindManager.InputEvent.Pressed:
+            return
 
-        next_mission = missions[active_mission_index - 1]
+        missionTracker = self.getMissionTracker()
+        activeMissions = cast(
+            List[unrealsdk.UObject], self.getActiveMissions(missionTracker)
+        )
+        index = self.getActiveMissionIndex(missionTracker, activeMissions)
 
-        self.SetSelectedMission(next_mission.missionDef)
+        nextMission = activeMissions[index - 1]
 
-    def _isClient(self) -> bool:
-        return int(unrealsdk.GetEngine().GetCurrentWorldInfo().NetMode) == 3
+        self.setActiveMission(nextMission.MissionDef)
 
-    def _getMissionTracker(self) -> unrealsdk.UObject:
-        """Return the `WillowGame.MissionTracker`."""
-        return unrealsdk.GetEngine().GetCurrentWorldInfo().GRI.MissionTracker
-
-    def _getActiveMissionIndex(self, missions: List[unrealsdk.UObject]) -> int:
-        active_mission = self.GetSelectedMission()
-        for i, m in enumerate(missions):
-            if m.MissionDef.MissionNumber == active_mission.MissionNumber:
-                return i
+    @staticmethod
+    def getActiveMissionIndex(
+        missionTracker: unrealsdk.UObject, missions: Iterable[unrealsdk.UObject]
+    ) -> int:
+        """Returns the index of the current active mission in missions."""
+        activeMission = missionTracker.ActiveMission
+        for index, mission in enumerate(missions):
+            if mission.MissionDef.MissionNumber == activeMission.MissionNumber:
+                return index
         return -1
 
-    def GetActiveMissions(self) -> List[unrealsdk.UObject]:
+    @staticmethod
+    def getMissionTracker() -> unrealsdk.UObject:
+        return unrealsdk.GetEngine().GetCurrentWorldInfo().GRI.MissionTracker
+
+    @staticmethod
+    def getActiveMissions(
+        missionTracker: unrealsdk.UObject,
+    ) -> Iterable[unrealsdk.UObject]:
+        """Returns all active missions sorted by their MissionNumber.
+
+        For a definition of active see `MissionStatus.isActive`-
         """
-        Get all missions that are either active or ready to turn in.
-        Returns list of `IMission.MissionData`
-        """
-        missions = []
-        for mission in self._getMissionTracker().MissionList:
-            if EMissionStatus(mission.Status).isActive():
-                missions.append(mission)
-        return missions
+        activeMissions = sorted(
+            [
+                m
+                for m in missionTracker.MissionList
+                if MissionStatus(m.Status).canBeActivated()
+            ],
+            key=lambda m: int(m.MissionDef.MissionNumber),
+        )
 
-    def GetSelectedMission(self) -> unrealsdk.UObject:
-        """Return the selected mission as `WillowGame.MissionDefinition`."""
-        return self._getMissionTracker().GetActiveMission()
+        return activeMissions
 
-    def GetMissionByNumber(self, number: int) -> Optional[unrealsdk.UObject]:
-        for mission in self._getMissionTracker().MissionList:
-            if mission.MissionDef.MissionNumber == number:
-                return mission.MissionDef
-        return None
-
-    def SetSelectedMission(self, mission: unrealsdk.UObject) -> None:
-        """Sets the selected mission.
-
-        mission must be a `WillowGame.MissionDefinition`.
-        """
-
-        if self._isClient():
-            self._serverSetSelectedMission(mission.MissionNumber)
+    def setActiveMission(self, mission: unrealsdk.UObject) -> None:
+        """Set the currently tracked mission to mission."""
+        if isClient():
+            self._serverSetActiveMission(mission.MissionNumber)
         else:
-            self._setSelectedMission(mission.MissionNumber)
+            self._setActiveMission(mission.MissionNumber)
+
+    def getMissionByNumber(
+        self, missionTracker: unrealsdk.UObject, number: int
+    ) -> unrealsdk.UObject:
+        """Returns the mission with the MissionNumber equal to number.
+
+        Raises an IndexError if the mission was not found.
+        """
+        for mission in missionTracker.MissionList:
+            if mission.MissionDef.MissionNumber == number:
+                return mission
+        raise IndexError(f"There is nomission with the mission number {number}")
 
     @ServerMethod
-    def _serverSetSelectedMission(
+    def _serverSetActiveMission(
         self, number: int, PC: Optional[unrealsdk.UObject] = None
     ) -> None:
-        self._setSelectedMission(number, PC)
+        self._setActiveMission(number, PC)
 
-    def _setSelectedMission(
+    def _setActiveMission(
         self, number: int, PC: Optional[unrealsdk.UObject] = None
     ) -> None:
-        mission = self.GetMissionByNumber(number)
-        if not mission:
-            self._log("Could not find mission with number {number}")
-            return
-        self._logClient(f"Set active mission to {mission.MissionName}", PC)
-        self._getMissionTracker().SetActiveMission(mission, True, PC)
+        missionTracker = self.getMissionTracker()
+        mission = self.getMissionByNumber(missionTracker, number)
+        missionTracker.SetActiveMission(mission.MissionDef, True, PC)
 
 
 instance = MissionSelector()
 if __name__ == "__main__":
-    instance._log("Manually loaded")
+    log(instance, "Manually loaded")
     for mod in Mods:
         if mod.Name == instance.Name:
             if mod.IsEnabled:
                 mod.Disable()
             Mods.remove(mod)
-            instance._log("Removed last instance")
+            log(instance, "Removed last instance")
 
             # Fixes inspect.getfile()
             instance.__class__.__module__ = mod.__class__.__module__
