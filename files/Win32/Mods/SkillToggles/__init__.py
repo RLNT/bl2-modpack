@@ -1,138 +1,232 @@
 import unrealsdk
+import webbrowser
+from typing import Dict, Optional
+
 from Mods.ModMenu import (
-    SDKMod,
-    Mods,
-    ModTypes,
     EnabledSaveType,
-    Options,
-    Keybind,
-    KeybindManager,
     Game,
     Hook,
-    RegisterMod
+    Keybind,
+    KeybindManager,
+    Mods,
+    ModTypes,
+    Options,
+    RegisterMod,
+    SDKMod,
+    ServerMethod,
 )
 
+try:
+    from Mods.EridiumLib import (
+        getCurrentPlayerController,
+        getLatestVersion,
+        isClient,
+        isLatestRelease,
+        log,
+    )
+    from Mods.EridiumLib.keys import KeyBinds
+except ModuleNotFoundError or ImportError:
+    webbrowser.open("https://github.com/RLNT/bl2_eridium#-troubleshooting")
+    raise
+
+if __name__ == "__main__":
+    import importlib
+    import sys
+
+    importlib.reload(sys.modules["Mods.EridiumLib"])
+    importlib.reload(sys.modules["Mods.EridiumLib.keys"])
+
+    # See https://github.com/bl-sdk/PythonSDK/issues/68
+    try:
+        raise NotImplementedError
+    except NotImplementedError:
+        __file__ = sys.exc_info()[-1].tb_frame.f_code.co_filename  # type: ignore
+
+
 class SkillToggles(SDKMod):
+    # region Mod Info
     Name: str = "Skill Toggles"
     Author: str = "Relentless, Chronophylos"
     Description: str = "Deactivate Action Skills by holding a configurable hotkey."
-    Version: str = "1.1.0"
+    Version: str = "1.2.0"
 
     SupportedGames: Game = Game.BL2
     Types: ModTypes = ModTypes.Utility
     SaveEnabledState: EnabledSaveType = EnabledSaveType.LoadWithSettings
 
+    SettingsInputs: Dict[str, str] = {
+        KeyBinds.Enter.value: "Enable",
+        KeyBinds.G.value: "GitHub",
+        KeyBinds.D.value: "Discord",
+    }
+    # endregion Mod Info
+
+    # region Mod Setup
     def __init__(self) -> None:
         super().__init__()
 
-        option_custom_keybind = Options.Boolean(
-            "Custom Keybind", "Do you want to use a custom keybind to toggle the Action Skills? If this is off, you have to use your default Action Skill keybind.", False
+        optionPsychoToggle = Options.Boolean(
+            "Psycho Skill Toggle",
+            "Allows Krieg to return from his Buzzaxe Rampage.",
+            True,
         )
-        option_buzzaxe_skill_toggle = Options.Boolean(
-            "Psycho Skill Toggle", "Allows Krieg to return from the Buzzaxe Rampage.", True
+        optionMechromancerToggle = Options.Boolean(
+            "Mechromancer Skill Toggle", "Allows Gaige to recall her Deathtrap.", True
         )
-        option_deathtrap_skill_toggle = Options.Boolean(
-            "Mechromancer Skill Toggle", "Allows Gaige to recall Deathtrap.", True
-        )
-        option_dual_wield_skill_toggle = Options.Boolean(
+        optionGunzerkerToggle = Options.Boolean(
             "Gunzerker Skill Toggle", "Allows Salvador to stop his Dual Wield.", True
         )
-        option_execute_skill_toggle = Options.Boolean(
+        optionAssassinToggle = Options.Boolean(
             "Assassin Skill Toggle", "Allows Zer0 to stop Decepti0n.", True
         )
-        option_lift_skill_toggle = Options.Boolean(
+        optionSirenToggle = Options.Boolean(
             "Siren Skill Toggle", "Allows Maya to stop her Phaselock.", True
         )
-        option_scorpio_skill_toggle = Options.Boolean(
+        optionCommandoToggle = Options.Boolean(
             "Commando Skill Toggle", "Allows Axton to recall his turrets.", True
         )
-
         self._classOptions = {
-            "Psycho": option_buzzaxe_skill_toggle,
-            "Mechromancer": option_deathtrap_skill_toggle,
-            "Gunzerker": option_dual_wield_skill_toggle,
-            "Assassin": option_execute_skill_toggle,
-            "Siren": option_lift_skill_toggle,
-            "Commando": option_scorpio_skill_toggle,
+            "Psycho": optionPsychoToggle,
+            "Mechromancer": optionMechromancerToggle,
+            "Gunzerker": optionGunzerkerToggle,
+            "Assassin": optionAssassinToggle,
+            "Siren": optionSirenToggle,
+            "Commando": optionCommandoToggle,
         }
+        self.Options = [*self._classOptions.values()]
 
-        self.Options = [option_custom_keybind, *self._classOptions.values()]
-        self._setupKeybinds()
-
-    def ModOptionChanged(self, option, newValue):
-        if option.Caption == "Custom Keybind":
-            self._setupKeybinds()
-
-    def _log(self, message: str) -> None:
-        unrealsdk.Log(f"[{self.Name}] {message}")
-
-    def _setupKeybinds(self) -> None:
         self.Keybinds = [
-            Keybind("Deactivate Action Skill", "F", True, self.Options[0].CurrentValue)
+            Keybind(
+                "Deactivate Action Skill",
+                "F",
+                True,
+                OnPress=self._skillDeactivationHotkey,
+            )
         ]
 
-    def _getPlayerController(self):
-        return unrealsdk.GetEngine().GamePlayers[0].Actor
+    def Enable(self) -> None:
+        super().Enable()
 
-    def _isSkillToggleable(self) -> bool:
-        player = self._getPlayerController()
-        className = player.PlayerClass.CharacterNameId.CharacterClassId.ClassName
+        log(self, f"Version: {self.Version}")
+        latest_version = getLatestVersion("RLNT/bl2_skilltoggles")
+        log(
+            self,
+            f"Latest release tag: {latest_version}",
+        )
+        if isLatestRelease(latest_version, self.Version):
+            log(self, "Up-to-date")
+        else:
+            log(self, "There is a newer version available {latest_version}")
 
-        if className not in self._classOptions:
-            return False
+    def SettingsInputPressed(self, action: str) -> None:
+        if action == "GitHub":
+            webbrowser.open("https://github.com/RLNT/bl2_skilltoggles")
+        elif action == "Discord":
+            webbrowser.open("https://discord.com/invite/Q3qxws6")
+        else:
+            super().SettingsInputPressed(action)
 
-        return self._classOptions[className].CurrentValue
+    # endregion Mod Setup
 
-    def _handleSkillToggling(self) -> None:
-        player = self._getPlayerController()
-        skillManager = player.GetSkillManager()
-        actionSkill = player.PlayerSkillTree.GetActionSkill()
+    # region Hotkey Handling
+    def _skillDeactivationHotkey(self, event: KeybindManager.InputEvent) -> None:
+        """
+        handles the modded hotkey input
+        """
+        if event == KeybindManager.InputEvent.Repeat:
+            self._skillDeactivation()
 
-        if skillManager.IsSkillActive(player, actionSkill):
-            actionSkill.bCanBeToggledOff = True
-            player.StartActionSkill()
+    # endregion Hotkey Handling
 
-    def GameInputPressed(
-        self, bind: KeybindManager.Keybind, event: KeybindManager.InputEvent
+    # region Skill Deactivation
+    def _skillDeactivation(self) -> None:
+        """
+        handles the skill deactivation
+        """
+        if isClient():
+            self._requestSkillDeactivation()
+        else:
+            self._executeSkillDeactivation()
+
+    @ServerMethod
+    def _requestSkillDeactivation(
+        self,
+        PC: Optional[unrealsdk.UObject] = None,
     ) -> None:
-        if event != KeybindManager.InputEvent.Repeat or not self._isSkillToggleable():
+        self._executeSkillDeactivation(PC)
+
+    def _executeSkillDeactivation(
+        self,
+        PC: Optional[unrealsdk.UObject] = None,
+    ) -> None:
+        # if PC is None, get current local player
+        if PC is None:
+            PC = getCurrentPlayerController()
+
+        # check if the skill for the current local player is toggleable (config option)
+        className: str = PC.PlayerClass.CharacterNameId.CharacterClassId.ClassName
+        if (
+            className not in self._classOptions
+            or self._classOptions[className].CurrentValue is False
+        ):
             return
 
-        self._handleSkillToggling()
+        # deactivate the action skill if it's active
+        gameInfo = unrealsdk.GetEngine().GetCurrentWorldInfo().Game
+        skillManager = gameInfo.GetSkillManager()
+        actionSkill = PC.PlayerSkillTree.GetActionSkill()
 
-    @Hook("WillowGame.WillowUIInteraction.InputKey")
-    def _inputKey(self, caller: unrealsdk.UObject, function: unrealsdk.UFunction, params: unrealsdk.FStruct):
-        if self.Options[0].CurrentValue or params.Event != KeybindManager.InputEvent.Repeat:
-            return True
+        if skillManager.IsSkillActive(PC, actionSkill):
+            actionSkill.bCanBeToggledOff = True
+            PC.ServerStartActionSkill()
 
-        player = self._getPlayerController()
-        hotkey = player.PlayerInput.GetKeyForAction("ActionSkill", True)
+    # endregion Skill Deactivation
 
-        if params.Key != hotkey or not self._isSkillToggleable():
-            return True
-
-        self._handleSkillToggling()
+    # region Info Reset
+    @Hook("WillowGame.ActionSkill.OnActionSkillEnded")
+    def _onActionSkillEnded(
+        self,
+        caller: unrealsdk.UObject,
+        function: unrealsdk.UFunction,
+        params: unrealsdk.FStruct,
+    ) -> bool:
+        """
+        handles reset of the changed player information
+        runs on player and host so it needs info checks
+        """
+        if isClient():
+            self._requestInfoReset()
+        else:
+            self._executeInfoReset()
 
         return True
 
-    @Hook("WillowGame.ActionSkill.OnActionSkillEnded")
-    def _onActionSkillEnded(self, caller: unrealsdk.UObject, function: unrealsdk.UFunction, params: unrealsdk.FStruct):
-        actionSkill = self._getPlayerController().PlayerSkillTree.GetActionSkill()
+    @ServerMethod
+    def _requestInfoReset(self, PC: Optional[unrealsdk.UObject] = None) -> None:
+        self._executeInfoReset(PC)
 
-        if actionSkill.bCanBeToggledOff == True:
+    def _executeInfoReset(self, PC: Optional[unrealsdk.UObject] = None) -> None:
+        # if PC is None, get current local player
+        if PC is None:
+            PC = getCurrentPlayerController()
+
+        # only reset if it was changed because the hook is called for player and host
+        actionSkill = PC.PlayerSkillTree.GetActionSkill()
+        if actionSkill.bCanBeToggledOff is True:
             actionSkill.bCanBeToggledOff = False
 
-        return True
+    # endregion Info Reset
+
 
 instance = SkillToggles()
 if __name__ == "__main__":
-    unrealsdk.Log(f"[{instance.Name}] Manually loaded")
+    log(instance, "Manually loaded")
     for mod in Mods:
         if mod.Name == instance.Name:
             if mod.IsEnabled:
                 mod.Disable()
             Mods.remove(mod)
-            unrealsdk.Log(f"[{instance.Name}] Removed last instance")
+            log(instance, "Removed last instance")
 
             # Fixes inspect.getfile()
             instance.__class__.__module__ = mod.__class__.__module__
