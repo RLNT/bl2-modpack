@@ -12,6 +12,18 @@ The format is based on [Keep a Changelog][keep a changelog] and this project adh
 
 ## [Released]
 
+## [2021-03-23]
+
+### Added
+- EridiumLib
+
+### Changed
+- updated MissionSelector
+  - no longer giving errors
+- updated SkillToggles
+  - added multiplayer support
+
+
 ## [2021-03-18]
 
 ### Changed
@@ -33,5 +45,6 @@ The format is based on [Keep a Changelog][keep a changelog] and this project adh
 
 [unreleased]: https://github.com/RLNT/bl2-rlnt-modpack/
 [released]: https://github.com/RLNT/bl2-rlnt-modpack/
+[2021-03-23]: https://github.com/RLNT/bl2-rlnt-modpack/
 [2021-03-18]: https://github.com/RLNT/bl2-rlnt-modpack/
 [2021-03-14]: https://github.com/RLNT/bl2-rlnt-modpack/
