@@ -45,7 +45,8 @@ In case you want to try it out yourself although we don't really explain what ex
    - replace everything if you are asked to
    - the folder structure already matches the correct path so it's just drag and drop
 4. now open the BLCMM.exe which is located in your Binaries folder and patch Borderlands 2
-5. open the game and play
+5. open the game, open the Mod Menu and activate all mods which are marked as favorite
+6. join the game and play
    - you can see if the modpack works if you have a MODS option and a message showing up in the main menu
    - also in-game, there should be a yellow message underneath the badass menu
    - there are no console commands required and everything is automatically loaded
