@@ -12,6 +12,18 @@ The format is based on [Keep a Changelog][keep a changelog] and this project adh
 
 ## [Released]
 
+## [2021-03-27]
+
+### Added
+- Deathtrap Shield
+
+### Changed
+- updated:
+  - EridiumLib
+  - Mission Selector
+  - Skill Toggles
+
+
 ## [2021-03-23]
 
 ### Added
@@ -45,6 +57,7 @@ The format is based on [Keep a Changelog][keep a changelog] and this project adh
 
 [unreleased]: https://github.com/RLNT/bl2-rlnt-modpack/
 [released]: https://github.com/RLNT/bl2-rlnt-modpack/
+[2021-03-27]: https://github.com/RLNT/bl2-rlnt-modpack/
 [2021-03-23]: https://github.com/RLNT/bl2-rlnt-modpack/
 [2021-03-18]: https://github.com/RLNT/bl2-rlnt-modpack/
 [2021-03-14]: https://github.com/RLNT/bl2-rlnt-modpack/
