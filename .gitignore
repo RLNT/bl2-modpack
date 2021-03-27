@@ -31,6 +31,10 @@ files/Win32/Mods/MissionSelector/*
 files/Win32/Mods/SkillToggles/*
 !files/Win32/Mods/SkillToggles/__init__.py
 
+# ignore DeathtrapShield except mod files
+files/Win32/Mods/DeathtrapShield/*
+!files/Win32/Mods/DeathtrapShield/__init__.py
+
 # ignore additional mods not belonging to the modpack
 files/Win32/Mods/ApplesBorderlandsCheats
 
