@@ -18,15 +18,18 @@ from Mods.ModMenu import (
 
 try:
     from Mods.EridiumLib import (
+        checkLibraryVersion,
+        checkModVersion,
+        getActionSkill,
         getCurrentPlayerController,
-        getLatestVersion,
+        getSkillManager,
+        getVaultHunterClassName,
         isClient,
-        isLatestRelease,
         log,
     )
     from Mods.EridiumLib.keys import KeyBinds
-except ModuleNotFoundError or ImportError:
-    webbrowser.open("https://github.com/RLNT/bl2_eridium#-troubleshooting")
+except ImportError:
+    webbrowser.open("https://github.com/RLNT/bl2_eridium/blob/main/docs/TROUBLESHOOTING.md")
     raise
 
 if __name__ == "__main__":
@@ -48,9 +51,10 @@ class SkillToggles(SDKMod):
     Name: str = "Skill Toggles"
     Author: str = "Relentless, Chronophylos"
     Description: str = "Deactivate Action Skills by holding a configurable hotkey."
-    Version: str = "1.2.0"
+    Version: str = "1.3.1"
+    _EridiumVersion: str = "0.4.1"
 
-    SupportedGames: Game = Game.BL2
+    SupportedGames: Game = Game.BL2 | Game.TPS
     Types: ModTypes = ModTypes.Utility
     SaveEnabledState: EnabledSaveType = EnabledSaveType.LoadWithSettings
 
@@ -65,34 +69,65 @@ class SkillToggles(SDKMod):
     def __init__(self) -> None:
         super().__init__()
 
-        optionPsychoToggle = Options.Boolean(
-            "Psycho Skill Toggle",
-            "Allows Krieg to return from his Buzzaxe Rampage.",
-            True,
-        )
-        optionMechromancerToggle = Options.Boolean(
-            "Mechromancer Skill Toggle", "Allows Gaige to recall her Deathtrap.", True
-        )
-        optionGunzerkerToggle = Options.Boolean(
-            "Gunzerker Skill Toggle", "Allows Salvador to stop his Dual Wield.", True
-        )
-        optionAssassinToggle = Options.Boolean(
-            "Assassin Skill Toggle", "Allows Zer0 to stop Decepti0n.", True
-        )
-        optionSirenToggle = Options.Boolean(
-            "Siren Skill Toggle", "Allows Maya to stop her Phaselock.", True
-        )
-        optionCommandoToggle = Options.Boolean(
-            "Commando Skill Toggle", "Allows Axton to recall his turrets.", True
-        )
-        self._classOptions = {
-            "Psycho": optionPsychoToggle,
-            "Mechromancer": optionMechromancerToggle,
-            "Gunzerker": optionGunzerkerToggle,
-            "Assassin": optionAssassinToggle,
-            "Siren": optionSirenToggle,
-            "Commando": optionCommandoToggle,
-        }
+        if Game.GetCurrent() == Game.BL2:
+            optionSirenToggle = Options.Boolean(
+                "Siren Skill Toggle", "Allows Maya to stop her Phaselock.", True
+            )
+            optionGunzerkerToggle = Options.Boolean(
+                "Gunzerker Skill Toggle", "Allows Salvador to stop his Dual Wield.", True
+            )
+            optionCommandoToggle = Options.Boolean(
+                "Commando Skill Toggle", "Allows Axton to recall his turrets.", True
+            )
+            optionAssassinToggle = Options.Boolean(
+                "Assassin Skill Toggle", "Allows Zer0 to stop Decepti0n.", True
+            )
+            optionMechromancerToggle = Options.Boolean(
+                "Mechromancer Skill Toggle", "Allows Gaige to recall her Deathtrap.", True
+            )
+            optionPsychoToggle = Options.Boolean(
+                "Psycho Skill Toggle",
+                "Allows Krieg to return from his Buzzaxe Rampage.",
+                True,
+            )
+
+            self._classOptions = {
+                "Siren": optionSirenToggle,
+                "Gunzerker": optionGunzerkerToggle,
+                "Commando": optionCommandoToggle,
+                "Assassin": optionAssassinToggle,
+                "Mechromancer": optionMechromancerToggle,
+                "Psycho": optionPsychoToggle,
+            }
+        elif Game.GetCurrent() == Game.TPS:
+            optionGladiatorToggle = Options.Boolean(
+                "Gladiator Skill Toggle", "Allows Athena to stop her Kinetic Aspis.", True
+            )
+            optionEnforcerToggle = Options.Boolean(
+                "Enforcer Skill Toggle", "Allows Wilhelm to recall Wolf and Saint.", True
+            )
+            optionLawbringerToggle = Options.Boolean(
+                "Lawbringer Skill Toggle", "Allows Nisha to stop her showdown.", True
+            )
+            optionFragtrapToggle = Options.Boolean(
+                "Fragtrap Skill Toggle", "Allows Claptrap to stop VaultHunter.EXE.", True
+            )
+            optionDoppelgangerToggle = Options.Boolean(
+                "Doppelganger Skill Toggle", "Allows Jack to stop his Expendable Assets.", True
+            )
+            optionBaronessToggle = Options.Boolean(
+                "Baroness Skill Toggle", "Allows Aurelia to stop Cold As Ice.", True
+            )
+
+            self._classOptions = {
+                "Gladiator": optionGladiatorToggle,
+                "Enforcer": optionEnforcerToggle,
+                "Lawbringer": optionLawbringerToggle,
+                "Fragtrap": optionFragtrapToggle,
+                "Doppelganger": optionDoppelgangerToggle,
+                "Baroness": optionBaronessToggle,
+            }
+
         self.Options = [*self._classOptions.values()]
 
         self.Keybinds = [
@@ -107,16 +142,10 @@ class SkillToggles(SDKMod):
     def Enable(self) -> None:
         super().Enable()
 
-        log(self, f"Version: {self.Version}")
-        latest_version = getLatestVersion("RLNT/bl2_skilltoggles")
-        log(
-            self,
-            f"Latest release tag: {latest_version}",
-        )
-        if isLatestRelease(latest_version, self.Version):
-            log(self, "Up-to-date")
-        else:
-            log(self, "There is a newer version available {latest_version}")
+        if not checkLibraryVersion(self._EridiumVersion):
+            raise RuntimeWarning("Incompatible EridiumLib version!")
+
+        checkModVersion(self, "RLNT/bl2_skilltoggles")
 
     def SettingsInputPressed(self, action: str) -> None:
         if action == "GitHub":
@@ -164,7 +193,7 @@ class SkillToggles(SDKMod):
             PC = getCurrentPlayerController()
 
         # check if the skill for the current local player is toggleable (config option)
-        className: str = PC.PlayerClass.CharacterNameId.CharacterClassId.ClassName
+        className: str = getVaultHunterClassName(PC)
         if (
             className not in self._classOptions
             or self._classOptions[className].CurrentValue is False
@@ -172,9 +201,8 @@ class SkillToggles(SDKMod):
             return
 
         # deactivate the action skill if it's active
-        gameInfo = unrealsdk.GetEngine().GetCurrentWorldInfo().Game
-        skillManager = gameInfo.GetSkillManager()
-        actionSkill = PC.PlayerSkillTree.GetActionSkill()
+        skillManager = getSkillManager()
+        actionSkill = getActionSkill(PC)
 
         if skillManager.IsSkillActive(PC, actionSkill):
             actionSkill.bCanBeToggledOff = True
@@ -211,7 +239,7 @@ class SkillToggles(SDKMod):
             PC = getCurrentPlayerController()
 
         # only reset if it was changed because the hook is called for player and host
-        actionSkill = PC.PlayerSkillTree.GetActionSkill()
+        actionSkill = getActionSkill(PC)
         if actionSkill.bCanBeToggledOff is True:
             actionSkill.bCanBeToggledOff = False
 

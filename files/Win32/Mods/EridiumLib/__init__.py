@@ -2,7 +2,7 @@
 import unrealsdk
 import sys
 import webbrowser
-from typing import Any, Dict, cast
+from typing import Any, Dict, Optional, cast
 
 from Mods.EridiumLib import debug, keys
 from Mods.EridiumLib.keys import KeyBinds
@@ -29,6 +29,7 @@ site.addsitedir("Mods/EridiumLib/dist")
 
 # isort: skip
 
+import asyncio
 import socket
 import ssl
 
@@ -40,19 +41,28 @@ __all__ = [
     "log",
     "isClient",
     "getCurrentPlayerController",
+    "getCurrentWorldInfo",
+    "getCurrentGameInfo",
+    "getSkillManager",
+    "getActionSkill",
+    "getVaultHunterClassName",
+    "validateVersion",
+    "getLatestVersion",
+    "isLatestRelease",
+    "checkLibraryVersion",
+    "checkModVersion",
     "EridiumMod",
-    "missions",
     "keys",
     "debug",
     # redistributed modules
     "requests",
     "semver",
     "ujson",
-    # python c modules
     "socket",
     "ssl",
+    "asyncio",
 ]
-__version__ = "0.3.2"
+__version__ = "0.4.1"
 
 
 def log(mod: SDKMod, *args: Any) -> None:
@@ -69,22 +79,108 @@ def getCurrentPlayerController() -> unrealsdk.UObject:
     return cast(unrealsdk.UObject, unrealsdk.GetEngine().GamePlayers[0].Actor)
 
 
-def getLatestVersion(repo: str) -> str:
-    response = requests.get(f"https://api.github.com/repos/{repo}/releases")
-    response.raise_for_status()
-    releases = response.json()
+def getCurrentWorldInfo() -> unrealsdk.UObject:
+    """Returns the current world info."""
+    return cast(unrealsdk.UObject, unrealsdk.GetEngine().GetCurrentWorldInfo())
+
+
+def getCurrentGameInfo() -> unrealsdk.UObject:
+    """Returns the current game info."""
+    return cast(unrealsdk.UObject, getCurrentWorldInfo().Game)
+
+
+def getSkillManager() -> unrealsdk.UObject:
+    """Returns the global skill manager from the game info."""
+    return cast(unrealsdk.UObject, getCurrentGameInfo().GetSkillManager())
+
+
+def getActionSkill(PC: Optional[unrealsdk.UObject] = None) -> unrealsdk.UObject:
+    """
+    Returns the action skill of a player controller.
+    A player controller can be passed in.
+    If no player controller is passed in, the local player will be used.
+    """
+    if PC is None:
+        PC = getCurrentPlayerController()
+
+    return cast(unrealsdk.UObject, PC.PlayerSkillTree.GetActionSkill())
+
+
+def getVaultHunterClassName(PC: Optional[unrealsdk.UObject] = None) -> str:
+    """
+    Returns the class name of a Vault Hunter of a player controller.
+    A player controller can be passed in.
+    If no player controller is passed in, the local player will be used.
+    """
+    if PC is None:
+        PC = getCurrentPlayerController()
+
+    return str(PC.PlayerClass.CharacterNameId.CharacterClassId.ClassName)
+
+
+def validateVersion(version: str) -> str:
+    if version[0] == "v":
+        version = version[1:]
+    return version
+
+
+def getLatestVersion(repository: str) -> str:
+    """
+    Gets the latest public release tag name of a passed in repository.
+    Will raise an exception if the releases couldn't be fetched.
+    """
+    try:
+        response = requests.get(f"https://api.github.com/repos/{repository}/releases")
+        response.raise_for_status()
+        releases = response.json()
+    except Exception:
+        raise
+
     if len(releases) < 1:
-        raise RuntimeWarning(f"{repo} has no releases")
+        raise RuntimeWarning(f"{repository} has no releases!")
+
     return str(releases[0]["tag_name"])
 
 
-def isLatestRelease(latest_version: str, current_version: str) -> bool:
-    if latest_version[0] == "v":
-        latest_version = latest_version[1:]
-    if current_version[0] == "v":
-        current_version = current_version[1:]
+def isLatestRelease(latestVersion: str, currentVersion: str) -> bool:
+    """
+    Returns True if the current version is equal
+    or higher than the latest version.
+    """
+    return int(semver.compare(validateVersion(currentVersion), validateVersion(latestVersion))) >= 0
 
-    return int(semver.compare(current_version, latest_version)) >= 0
+
+def checkLibraryVersion(requiredVersion: str) -> bool:
+    """
+    Returns True if the version of EridiumLib is compatible.
+    If not, opens a page which informs that the EridiumLib version is incompatible.
+    """
+    import webbrowser
+
+    if int(semver.compare(__version__, validateVersion(requiredVersion))) >= 0:
+        return True
+
+    webbrowser.open("https://github.com/RLN/bl2_eridiumT/blob/main/docs/TROUBLESHOOTING.md")
+    return False
+
+
+def checkModVersion(mod: SDKMod, repository: str) -> None:
+    """
+    Checks if the mod version is up-to-date.
+    Will log the results to the console.
+    """
+    log(mod, f"Version: v{mod.Version}")
+
+    try:
+        latestVersion: str = getLatestVersion(repository)
+    except Exception:
+        log(mod, "Latest version couldn't be fetched! Skipping version check.")
+        return
+
+    if isLatestRelease(validateVersion(latestVersion), validateVersion(mod.Version)):
+        log(mod, "Mod is up-to-date!")
+    else:
+        log(mod, f"Newer version available: {latestVersion}")
 
 
 class EridiumLib(SDKMod):
@@ -104,12 +200,7 @@ class EridiumLib(SDKMod):
 
     def __init__(self) -> None:
         self.Status = "Enabled"
-
-        log(self, f"Version: {self.Version}")
-        try:
-            log(self, f"Latest release tag: {getLatestVersion('RLNT/bl2_eridium')}")
-        except RuntimeWarning as ex:
-            log(self, f"Warning: {ex}")
+        checkModVersion(self, "RLNT/bl2_eridium")
         log(self, f"Python Version: {sys.version}")
         log(self, f"__debug__: {__debug__}")
 

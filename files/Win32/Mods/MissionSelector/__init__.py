@@ -1,8 +1,8 @@
+import unrealsdk
 import enum
 import webbrowser
 from typing import Dict, Iterable, List, Optional, cast
 
-import unrealsdk
 from Mods.ModMenu import (
     EnabledSaveType,
     Game,
@@ -17,10 +17,16 @@ from Mods.ModMenu import (
 
 # thank you apple :)
 try:
-    from Mods.EridiumLib import getLatestVersion, isClient, isLatestRelease, log
+    from Mods.EridiumLib import (
+        checkLibraryVersion,
+        checkModVersion,
+        getCurrentWorldInfo,
+        isClient,
+        log,
+    )
     from Mods.EridiumLib.keys import KeyBinds
-except ModuleNotFoundError or ImportError:
-    webbrowser.open("https://github.com/RLNT/bl2_eridium#-troubleshooting")
+except ImportError:
+    webbrowser.open("https://github.com/RLNT/bl2_eridium/blob/main/docs/TROUBLESHOOTING.md")
     raise
 
 if __name__ == "__main__":
@@ -35,11 +41,6 @@ if __name__ == "__main__":
         raise NotImplementedError
     except NotImplementedError:
         __file__ = sys.exc_info()[-1].tb_frame.f_code.co_filename  # type: ignore
-
-NEXT_MISSION_DESC: str = "Select next Mission"
-NEXT_MISSION_KEY: str = KeyBinds.RightBracket.value
-PREV_MISSION_DESC: str = "Select previous Mission"
-PREV_MISSION_KEY: str = KeyBinds.LeftBracket.value
 
 
 class MissionStatus(enum.IntEnum):
@@ -62,10 +63,9 @@ class MissionStatus(enum.IntEnum):
 class MissionSelector(SDKMod):
     Name: str = "Mission Selector"
     Author: str = "Chronophylos, Relentless"
-    Description: str = (
-        "Switch through missions with hotkeys.\nInspired by Borderlands 3."
-    )
-    Version: str = "1.3.0"
+    Description: str = "Switch through missions with hotkeys.\nInspired by Borderlands 3."
+    Version: str = "1.3.1"
+    _EridiumVersion: str = "0.4.1"
 
     SupportedGames: Game = Game.BL2 | Game.TPS
     Types: ModTypes = ModTypes.Utility
@@ -82,26 +82,23 @@ class MissionSelector(SDKMod):
 
         self.Keybinds = [
             Keybind(
-                NEXT_MISSION_DESC, NEXT_MISSION_KEY, True, OnPress=self.nextMission
+                "Select next Mission", KeyBinds.RightBracket.value, True, OnPress=self.nextMission
             ),
             Keybind(
-                PREV_MISSION_DESC, PREV_MISSION_KEY, True, OnPress=self.prevMission
+                "Select previous Mission",
+                KeyBinds.LeftBracket.value,
+                True,
+                OnPress=self.prevMission,
             ),
         ]
 
     def Enable(self) -> None:
         super().Enable()
 
-        log(self, f"Version: {self.Version}")
-        latest_version = getLatestVersion("RLNT/bl2_missionselector")
-        log(
-            self,
-            f"Latest release tag: {latest_version}",
-        )
-        if isLatestRelease(latest_version, self.Version):
-            log(self, "Up-to-date")
-        else:
-            log(self, "There is a newer version available {latest_version}")
+        if not checkLibraryVersion(self._EridiumVersion):
+            raise RuntimeWarning("Incompatible EridiumLib version!")
+
+        checkModVersion(self, "RLNT/bl2_missionselector")
 
     def SettingsInputPressed(self, action: str) -> None:
         if action == "GitHub":
@@ -116,9 +113,7 @@ class MissionSelector(SDKMod):
             return
 
         missionTracker = self.getMissionTracker()
-        activeMissions = cast(
-            List[unrealsdk.UObject], self.getActiveMissions(missionTracker)
-        )
+        activeMissions = cast(List[unrealsdk.UObject], self.getActiveMissions(missionTracker))
         index = self.getActiveMissionIndex(missionTracker, activeMissions)
 
         nextMission = None
@@ -134,9 +129,7 @@ class MissionSelector(SDKMod):
             return
 
         missionTracker = self.getMissionTracker()
-        activeMissions = cast(
-            List[unrealsdk.UObject], self.getActiveMissions(missionTracker)
-        )
+        activeMissions = cast(List[unrealsdk.UObject], self.getActiveMissions(missionTracker))
         index = self.getActiveMissionIndex(missionTracker, activeMissions)
 
         nextMission = activeMissions[index - 1]
@@ -156,7 +149,7 @@ class MissionSelector(SDKMod):
 
     @staticmethod
     def getMissionTracker() -> unrealsdk.UObject:
-        return unrealsdk.GetEngine().GetCurrentWorldInfo().GRI.MissionTracker
+        return cast(unrealsdk.UObject, getCurrentWorldInfo().GRI.MissionTracker)
 
     @staticmethod
     def getActiveMissions(
@@ -167,11 +160,7 @@ class MissionSelector(SDKMod):
         For a definition of active see `MissionStatus.isActive`-
         """
         activeMissions = sorted(
-            [
-                m
-                for m in missionTracker.MissionList
-                if MissionStatus(m.Status).canBeActivated()
-            ],
+            [m for m in missionTracker.MissionList if MissionStatus(m.Status).canBeActivated()],
             key=lambda m: int(m.MissionDef.MissionNumber),
         )
 
@@ -193,18 +182,14 @@ class MissionSelector(SDKMod):
         """
         for mission in missionTracker.MissionList:
             if mission.MissionDef.MissionNumber == number:
-                return mission
+                return cast(unrealsdk.UObject, mission)
         raise IndexError(f"There is nomission with the mission number {number}")
 
     @ServerMethod
-    def _serverSetActiveMission(
-        self, number: int, PC: Optional[unrealsdk.UObject] = None
-    ) -> None:
+    def _serverSetActiveMission(self, number: int, PC: Optional[unrealsdk.UObject] = None) -> None:
         self._setActiveMission(number, PC)
 
-    def _setActiveMission(
-        self, number: int, PC: Optional[unrealsdk.UObject] = None
-    ) -> None:
+    def _setActiveMission(self, number: int, PC: Optional[unrealsdk.UObject] = None) -> None:
         missionTracker = self.getMissionTracker()
         mission = self.getMissionByNumber(missionTracker, number)
         missionTracker.SetActiveMission(mission.MissionDef, True, PC)
