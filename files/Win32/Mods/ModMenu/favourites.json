@@ -1,11 +1,12 @@
 [
-    "UserFeedback",
-    "Skill Toggles",
-    "AsyncUtil",
-    "SDK Autorun",
-    "EridiumLib",
     "BL2Fix",
     "Mission Selector",
+    "Deathtrap Shield",
     "BSABT",
-    "Alt Use Vendors"
+    "Skill Toggles",
+    "EridiumLib",
+    "AsyncUtil",
+    "UserFeedback",
+    "Alt Use Vendors",
+    "SDK Autorun"
 ]
